@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend-docker-practice
+    container_name: task-api-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend-docker-practice
+    container_name: task-app-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge

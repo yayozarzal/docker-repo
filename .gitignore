@@ -1,0 +1,14 @@
+# Node / React
+node_modules/
+dist/
+build/
+.cache/
+.npm/
+.env
+.env.*
+# Editor/OS
+.DS_Store
+*.log
+# Docker
+*.pid
+**/tmp/
