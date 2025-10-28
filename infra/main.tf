@@ -52,7 +52,10 @@ resource "oci_core_security_list" "sl" {
   ingress_security_rules {
     protocol = "6"
     source   = "0.0.0.0/0"
-    tcp_options { min = 22, max = 22 }
+    tcp_options {
+      min = 22
+      max = 22
+    }
   }
 
   # HTTP 80
@@ -61,17 +64,23 @@ resource "oci_core_security_list" "sl" {
     content {
       protocol = "6"
       source   = "0.0.0.0/0"
-      tcp_options { min = 80, max = 80 }
+      tcp_options {
+        min = 80
+        max = 80
+      }
     }
   }
 
-  # API 3000 (opcional)
+  # API 3000
   dynamic "ingress_security_rules" {
     for_each = var.open_port_3000 ? [1] : []
     content {
       protocol = "6"
       source   = "0.0.0.0/0"
-      tcp_options { min = 3000, max = 3000 }
+      tcp_options {
+        min = 3000
+        max = 3000
+      }
     }
   }
 }
@@ -112,7 +121,7 @@ resource "oci_core_instance" "vm" {
 
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
-    user_data           = base64encode(data.template_file.cloud_init.rendered)
+    user_data           = base64encode(templatefile("${path.module}/cloud-init.tpl", {}))
   }
 }
 
