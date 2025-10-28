@@ -30,6 +30,8 @@ jobs:
         with:
           context: ./frontend-docker-practice
           push: true
+          build-args: |
+            VITE_API_URL=${{ vars.FRONTEND_VITE_API_URL }}
           tags: |
             ${{ secrets.DOCKER_USER }}/task-app-frontend:latest
             ${{ secrets.DOCKER_USER }}/task-app-frontend:${{ github.sha }}

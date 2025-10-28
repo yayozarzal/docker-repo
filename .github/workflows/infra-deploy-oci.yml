@@ -1,0 +1,90 @@
+name: Provisionar OCI con Terraform y notificar IP
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra-deploy-oci.yml"
+
+jobs:
+  infra:
+    runs-on: ubuntu-latest
+    env:
+      TF_VAR_tenancy_ocid:     ${{ secrets.OCI_TENANCY_OCID }}
+      TF_VAR_user_ocid:        ${{ secrets.OCI_USER_OCID }}
+      TF_VAR_fingerprint:      ${{ secrets.OCI_FINGERPRINT }}
+      TF_VAR_private_key_pem:  ${{ secrets.OCI_API_PRIVATE_KEY }}
+      TF_VAR_region:           ${{ secrets.OCI_REGION }}
+      TF_VAR_compartment_ocid: ${{ secrets.OCI_COMPARTMENT_OCID }}
+      TF_VAR_ssh_public_key:   ${{ secrets.SSH_PUBLIC_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: infra
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: infra
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        id: apply
+        working-directory: infra
+        run: terraform apply -auto-approve tfplan
+
+      - name: Capturar IP para notificación
+        id: ip
+        if: always()
+        working-directory: infra
+        run: |
+          IP=$(terraform output -raw public_ip || echo "desconocida")
+          echo "PUBLIC_IP=$IP" >> $GITHUB_ENV
+
+      - name: Enviar correo (éxito)
+        if: ${{ success() }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port:     ${{ secrets.SMTP_PORT }}
+          username:        ${{ secrets.SMTP_USERNAME }}
+          password:        ${{ secrets.SMTP_PASSWORD }}
+          subject: "✅ Provision OK - IP: ${{ env.PUBLIC_IP }}"
+          to:      ${{ secrets.MAIL_TO }}
+          from:    ${{ secrets.MAIL_FROM }}
+          content_type: text/html
+          body: |
+            <h3>Provision terminado con éxito</h3>
+            <p><b>IP pública:</b> ${{ env.PUBLIC_IP }}</p>
+            <p>Frontend: http://${{ env.PUBLIC_IP }}/<br/>
+               Backend health: http://${{ env.PUBLIC_IP }}:3000/api/health</p>
+            <p>Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}</p>
+
+      - name: Enviar correo (fallo)
+        if: ${{ failure() }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port:     ${{ secrets.SMTP_PORT }}
+          username:        ${{ secrets.SMTP_USERNAME }}
+          password:        ${{ secrets.SMTP_PASSWORD }}
+          subject: "❌ Provision FALLÓ"
+          to:      ${{ secrets.MAIL_TO }}
+          from:    ${{ secrets.MAIL_FROM }}
+          content_type: text/plain
+          body: |
+            Falló el job de infraestructura. Revisa logs:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
